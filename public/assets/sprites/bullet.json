@@ -1,0 +1,17 @@
+{
+  "frames": {
+    "bullet_default": {
+      "frame": {"x": 0, "y": 0, "w": 8, "h": 8},
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {"x": 0, "y": 0, "w": 8, "h": 8},
+      "sourceSize": {"w": 8, "h": 8}
+    }
+  },
+  "meta": {
+    "image": "bullet.png",
+    "format": "RGBA8888",
+    "size": {"w": 8, "h": 8},
+    "scale": "1"
+  }
+}
