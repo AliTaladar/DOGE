@@ -100,8 +100,11 @@ export default class PreloaderScene extends Phaser.Scene {
     
     // Try to load local assets, with fallbacks if they fail
     try {
-      // Load tileset
+      // Load tileset - explicitly set the key to match what's in the tilemap
       this.load.image('tiles', '/assets/tilesets/dungeon_tiles.png');
+      
+      // Output debug information
+      console.log('Loading tileset image: /assets/tilesets/dungeon_tiles.png');
       
       // Load tilemap
       this.load.tilemapTiledJSON('level1', '/assets/tilemaps/level1.json');

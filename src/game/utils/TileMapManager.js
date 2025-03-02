@@ -1,63 +1,269 @@
-import Phaser from 'phaser';
+// Fix ESLint warning
+// import Phaser from 'phaser';
 
 export default class TileMapManager {
   constructor(scene) {
     this.scene = scene;
     this.map = null;
-    this.tileset = null;
-    this.layers = {};
-    this.objects = {};
+    this.layers = {
+      ground: null,
+      walls: null,
+      items: null
+    };
+    this.emergencyGraphics = null;
+    
+    console.log('TileMapManager: Initializing');
+    
+    // Try to create the map automatically
+    try {
+      // Attempt to create the map from the loaded tilemap
+      this.createMap('level1', 'tiles')
+          .createLayers();
+      console.log('TileMapManager: Successfully created map from tilemap');
+    } catch (err) {
+      console.error('TileMapManager: Error loading tilemap, using fallback map:', err);
+      
+      // Fall back to a procedurally generated map
+      this.createFallbackMap(25, 20);
+      console.log('TileMapManager: Created fallback map');
+    }
   }
   
-  createMap(key, tilesetName) {
+  createMap(key, tilesetKey) {
     try {
-      // Create the tilemap
+      console.log(`Creating tilemap from key: ${key}, with tileset: ${tilesetKey}`);
+      
+      // Get the tilemap from the cache
       this.map = this.scene.make.tilemap({ key });
       
-      // Add the tileset to the map
-      this.tileset = this.map.addTilesetImage(tilesetName);
+      if (!this.map) {
+        console.error('Failed to create tilemap from key');
+        return this;
+      }
+      
+      console.log('Tilemap created successfully, adding tileset');
+      
+      // Add the tileset to the map - properly match the key name in the tilemap data
+      this.tileset = this.map.addTilesetImage(tilesetKey, tilesetKey);
+      
+      if (!this.tileset) {
+        console.error('Failed to add tileset to map');
+        
+        // Check if tileset is in the cache
+        if (!this.scene.textures.exists(tilesetKey)) {
+          console.error(`Tileset texture '${tilesetKey}' does not exist in the cache`);
+        } else {
+          console.log(`Tileset texture '${tilesetKey}' exists in the cache, but failed to add to tilemap`);
+          console.log('Attempting to add tileset with detailed debugging:');
+          console.log('Tilemap tilesets:', this.map.tilesets);
+          console.log('Tileset texture dimensions:', 
+            this.scene.textures.get(tilesetKey).get(0).width,
+            'x',
+            this.scene.textures.get(tilesetKey).get(0).height
+          );
+        }
+        
+        // We'll continue and try to create layers anyway
+      } else {
+        console.log('Tileset added successfully');
+      }
+      
+      // Store the map key for reference
+      this.mapKey = key;
       
       return this;
     } catch (err) {
-      console.error('Error creating map:', err);
+      console.error('Error creating tilemap:', err);
       this.map = null;
       this.tileset = null;
       return this;
     }
   }
   
+  // Create an emergency map directly with graphics objects
+  createEmergencyMap(width = 20, height = 15, tileSize = 32) {
+    console.log('Creating emergency map with dimensions:', width, 'x', height);
+    
+    this.emergencyGraphics = [];
+    this.mapWidth = width;
+    this.mapHeight = height;
+    
+    // Calculate grid size based on map dimensions and tileSize
+    const gridWidth = width * tileSize;
+    const gridHeight = height * tileSize;
+    
+    // Create a border around the map
+    this.createWalls(0, 0, gridWidth, tileSize); // Top wall
+    this.createWalls(0, gridHeight - tileSize, gridWidth, tileSize); // Bottom wall
+    this.createWalls(0, tileSize, tileSize, gridHeight - (tileSize * 2)); // Left wall
+    this.createWalls(gridWidth - tileSize, tileSize, tileSize, gridHeight - (tileSize * 2)); // Right wall
+    
+    // Generate some internal walls to make it more interesting
+    this.generateInternalWalls(width, height, tileSize);
+    
+    console.log(`Emergency map created with ${this.emergencyGraphics.length} wall segments`);
+    
+    return this;
+  }
+  
+  createWalls(x, y, width, height) {
+    // Create a wall graphic
+    const wall = this.scene.add.rectangle(x + (width / 2), y + (height / 2), width, height, 0x444444);
+    
+    // Add a stroke around the wall for better visibility
+    wall.setStrokeStyle(2, 0xff0000);
+    
+    // Enable physics for the wall
+    this.scene.physics.add.existing(wall, true); // true = static body
+    
+    // Configure the physics body for proper collisions
+    if (wall.body) {
+      wall.body.immovable = true;
+      wall.body.moves = false;
+      
+      // Ensure body size matches graphic size
+      wall.body.setSize(width, height);
+      
+      // Set higher debug priority so we can see this in the debug mode
+      wall.body.debugShowBody = true;
+      wall.body.debugBodyColor = 0xff0000;
+    }
+    
+    // Log creation
+    console.log(`Wall created at (${x}, ${y}) with size ${width}x${height}`);
+    
+    // Add to our list of emergency graphics
+    this.emergencyGraphics.push(wall);
+    return wall;
+  }
+  
+  generateInternalWalls(width, height, tileSize) {
+    // Create a simple maze-like structure
+    const numWalls = Math.min(10, Math.floor(width * height / 20)); // Don't create too many walls
+    
+    console.log(`Generating ${numWalls} internal walls`);
+    
+    for (let i = 0; i < numWalls; i++) {
+      // Decide if this wall is horizontal or vertical
+      const isHorizontal = Math.random() > 0.5;
+      
+      if (isHorizontal) {
+        // Horizontal wall
+        const wallWidth = Math.floor(Math.random() * 5 + 3) * tileSize; // 3-7 tiles wide
+        const wallX = Math.floor(Math.random() * (width - (wallWidth / tileSize) - 2) + 1) * tileSize;
+        const wallY = Math.floor(Math.random() * (height - 4) + 2) * tileSize;
+        
+        this.createWalls(wallX, wallY, wallWidth, tileSize);
+      } else {
+        // Vertical wall
+        const wallHeight = Math.floor(Math.random() * 5 + 3) * tileSize; // 3-7 tiles high
+        const wallX = Math.floor(Math.random() * (width - 4) + 2) * tileSize;
+        const wallY = Math.floor(Math.random() * (height - (wallHeight / tileSize) - 2) + 1) * tileSize;
+        
+        this.createWalls(wallX, wallY, tileSize, wallHeight);
+      }
+    }
+  }
+  
+  clearEmergencyGraphics() {
+    // Clear any existing emergency graphics
+    this.emergencyGraphics.forEach(graphic => {
+      if (graphic && graphic.destroy) {
+        graphic.destroy();
+      }
+    });
+    this.emergencyGraphics = [];
+  }
+  
   createLayers() {
-    // Create base layers from the map
-    if (!this.map) return this;
+    // Skip if map doesn't exist
+    if (!this.map || !this.map.layers) {
+      console.error('Cannot create layers: map is null or missing layers');
+      return this;
+    }
     
     try {
-      // Create ground/floor layer
-      this.layers.ground = this.map.createLayer('Ground', this.tileset);
-      if (this.layers.ground) {
-        this.layers.ground.setCollisionByProperty({ collides: false });
+      console.log('Creating tilemap layers');
+      
+      // Ensure we have a tileset before proceeding
+      if (!this.tileset) {
+        console.warn('No tileset found, attempting to get tileset data');
+        // Try to get the tileset
+        this.tileset = this.map.addTilesetImage('tiles', 'tiles');
+        
+        if (!this.tileset) {
+          console.error('Failed to create tileset - cannot create layers');
+          return this;
+        }
       }
       
-      // Create walls layer (with collision)
-      this.layers.walls = this.map.createLayer('Walls', this.tileset);
-      if (this.layers.walls) {
-        this.layers.walls.setCollisionByProperty({ collides: true });
+      // Create layers based on the map data
+      this.layers = {};
+      
+      // Get layer data from the map
+      const mapLayers = this.map.layers.map(l => l.name);
+      console.log('Available layers in tilemap:', mapLayers);
+      
+      // Helper function to find layer by case-insensitive name
+      const findLayer = (layerName) => {
+        const exactMatch = this.map.getLayerIndexByName(layerName);
+        if (exactMatch !== null) return layerName;
+        
+        // Try capitalized version
+        const capitalizedName = layerName.charAt(0).toUpperCase() + layerName.slice(1);
+        const capitalizedMatch = this.map.getLayerIndexByName(capitalizedName);
+        if (capitalizedMatch !== null) return capitalizedName;
+        
+        return null;
+      };
+      
+      // Create floor layer
+      const floorLayerName = findLayer('floor') || findLayer('ground');
+      if (floorLayerName) {
+        this.layers.floor = this.map.createLayer(floorLayerName, this.tileset, 0, 0);
+        if (this.layers.floor) {
+          this.layers.floor.setDepth(0);
+          console.log(`Created floor layer using '${floorLayerName}'`);
+        }
+      } else {
+        console.warn('No floor/ground layer found in tilemap');
       }
       
-      // Create decoration layer (above ground, below walls)
-      this.layers.deco = this.map.createLayer('Decorations', this.tileset);
-      if (this.layers.deco) {
-        this.layers.deco.setCollisionByProperty({ collides: false });
-        this.layers.deco.setDepth(1);
+      // Create walls layer with collisions
+      const wallsLayerName = findLayer('walls');
+      if (wallsLayerName) {
+        this.layers.walls = this.map.createLayer(wallsLayerName, this.tileset, 0, 0);
+        
+        if (this.layers.walls) {
+          this.layers.walls.setDepth(10);
+          
+          // Set up collision for wall tiles (tileid 2 in our updated tileset)
+          this.layers.walls.setCollisionByExclusion([-1, 0, 1, 3]);
+          this.layers.walls.setCollisionByProperty({ collides: true });
+          
+          console.log('Set collision for walls layer');
+          
+          // Set world bounds based on map dimensions
+          this.scene.physics.world.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
+          console.log('World bounds set according to map dimensions');
+        }
+      } else {
+        console.warn('No walls layer found in tilemap');
       }
       
-      // Create overhead layer (above player)
-      this.layers.overhead = this.map.createLayer('Overhead', this.tileset);
-      if (this.layers.overhead) {
-        this.layers.overhead.setDepth(20);
-        this.layers.overhead.setCollisionByProperty({ collides: false });
+      // Create objects layer
+      const objectsLayerName = findLayer('objects') || findLayer('decorations');
+      if (objectsLayerName) {
+        this.layers.objects = this.map.createLayer(objectsLayerName, this.tileset, 0, 0);
+        if (this.layers.objects) {
+          this.layers.objects.setDepth(5);
+          console.log(`Created objects layer using '${objectsLayerName}'`);
+        }
       }
-    } catch (err) {
-      console.error('Error creating layers:', err);
+      
+      console.log('All layers created successfully');
+    } catch (error) {
+      console.error('Error creating layers:', error);
     }
     
     return this;
@@ -88,28 +294,80 @@ export default class TileMapManager {
   }
   
   setupColliders(player, enemies, items) {
-    if (!this.map) return this;
-    
     try {
-      // Set up player-wall collisions
-      if (player && this.layers.walls) {
-        this.scene.physics.add.collider(player, this.layers.walls);
+      console.log('TileMapManager: Setting up colliders');
+      
+      // Check which type of map we're using (tilemap or emergency graphics)
+      const usingTilemap = this.map && this.layers && this.layers.walls;
+      const usingEmergencyGraphics = this.emergencyGraphics && this.emergencyGraphics.length > 0;
+      
+      console.log(`Collision setup: Using tilemap: ${usingTilemap}, Using emergency graphics: ${usingEmergencyGraphics}`);
+      
+      if (usingTilemap) {
+        // Set up player-wall collisions using tilemap
+        if (player && this.layers.walls) {
+          console.log('Adding collider between player and tilemap walls');
+          this.scene.physics.add.collider(player, this.layers.walls);
+        }
+        
+        // Set up enemy-wall collisions using tilemap
+        if (enemies && this.layers.walls) {
+          console.log('Adding collider between enemies and tilemap walls');
+          this.scene.physics.add.collider(enemies, this.layers.walls);
+        }
+        
+        // Set up item-wall collisions using tilemap
+        if (items && this.layers.walls) {
+          console.log('Adding collider between items and tilemap walls');
+          this.scene.physics.add.collider(items, this.layers.walls);
+        }
       }
       
-      // Set up enemy-wall collisions
-      if (enemies && this.layers.walls) {
-        this.scene.physics.add.collider(enemies, this.layers.walls);
+      if (usingEmergencyGraphics) {
+        // Make sure all emergency graphics are properly set up for physics
+        this.emergencyGraphics.forEach(graphic => {
+          if (graphic.body) {
+            graphic.body.immovable = true;
+            graphic.body.moves = false;
+          }
+        });
+        
+        // Set up player-wall collisions using emergency graphics
+        if (player) {
+          console.log('Adding collider between player and emergency graphics walls');
+          this.scene.physics.add.collider(player, this.emergencyGraphics);
+          
+          // Debug log
+          console.log('Player physics body:', {
+            exists: player.body !== undefined,
+            enabled: player.body ? player.body.enable : false,
+            size: player.body ? [player.body.width, player.body.height] : 'N/A'
+          });
+        }
+        
+        // Set up enemy-wall collisions using emergency graphics
+        if (enemies) {
+          console.log('Adding collider between enemies and emergency graphics walls');
+          this.scene.physics.add.collider(enemies, this.emergencyGraphics);
+        }
+        
+        // Set up item-wall collisions using emergency graphics
+        if (items) {
+          console.log('Adding collider between items and emergency graphics walls');
+          this.scene.physics.add.collider(items, this.emergencyGraphics);
+        }
       }
       
-      // Set up enemy-enemy collisions
-      if (enemies) {
-        this.scene.physics.add.collider(enemies, enemies);
+      // Set world bounds if needed
+      if (!usingTilemap) {
+        // Set standard world bounds if no tilemap
+        const gridWidth = this.mapWidth * this.tileSize || 800;
+        const gridHeight = this.mapHeight * this.tileSize || 600;
+        this.scene.physics.world.setBounds(0, 0, gridWidth, gridHeight);
+        console.log(`Set world bounds to ${gridWidth}x${gridHeight}`);
       }
       
-      // Set up item-wall collisions
-      if (items && this.layers.walls) {
-        this.scene.physics.add.collider(items, this.layers.walls);
-      }
+      console.log('All map colliders set up successfully');
     } catch (err) {
       console.error('Error setting up colliders:', err);
     }
@@ -117,121 +375,21 @@ export default class TileMapManager {
     return this;
   }
   
-  createFallbackMap(width, height) {
-    // Create a simple fallback map programmatically if no tilemap is available
-    if (this.map) return this;
+  createFallbackMap(width = 25, height = 20, tileSize = 32) {
+    console.log('Creating procedural fallback map as emergency');
     
-    try {
-      // Create an empty map
-      this.map = this.scene.make.tilemap({
-        tileWidth: 32,
-        tileHeight: 32,
-        width,
-        height
-      });
-      
-      // Try to add tileset
-      try {
-        this.tileset = this.map.addTilesetImage('tiles');
-      } catch (err) {
-        console.error('Failed to add tileset, creating a fallback graphics tileset');
-        // Create a fallback tileset of colored rectangles
-        this.createFallbackTileset();
-      }
-      
-      // If we still don't have a tileset, bail out
-      if (!this.tileset) {
-        return this;
-      }
-      
-      // Create ground layer with floor tiles
-      const ground = this.map.createBlankLayer('Ground', this.tileset);
-      ground.fill(0); // Fill with the first tile in the tileset
-      this.layers.ground = ground;
-      
-      // Create walls around the perimeter
-      const walls = this.map.createBlankLayer('Walls', this.tileset);
-      
-      // Fill the top and bottom rows
-      for (let x = 0; x < width; x++) {
-        walls.putTileAt(0, x, 0);
-        walls.putTileAt(0, x, height - 1);
-      }
-      
-      // Fill the left and right columns
-      for (let y = 1; y < height - 1; y++) {
-        walls.putTileAt(0, 0, y);
-        walls.putTileAt(0, width - 1, y);
-      }
-      
-      // Add some random walls inside
-      for (let i = 0; i < width * height / 20; i++) {
-        const x = Phaser.Math.Between(2, width - 3);
-        const y = Phaser.Math.Between(2, height - 3);
-        
-        // Create small wall formations
-        walls.putTileAt(0, x, y);
-        
-        // Sometimes create larger clusters
-        if (Math.random() < 0.4) {
-          const direction = Phaser.Math.Between(0, 3);
-          if (direction === 0 && x < width - 3) walls.putTileAt(0, x + 1, y);
-          if (direction === 1 && x > 2) walls.putTileAt(0, x - 1, y);
-          if (direction === 2 && y < height - 3) walls.putTileAt(0, x, y + 1);
-          if (direction === 3 && y > 2) walls.putTileAt(0, x, y - 1);
-        }
-      }
-      
-      // Set collisions for walls
-      walls.setCollisionByExclusion([-1]);
-      this.layers.walls = walls;
-    } catch (err) {
-      console.error('Error creating fallback map:', err);
-    }
+    // First clear any existing emergency graphics
+    this.clearEmergencyGraphics();
     
-    return this;
+    // Set tile size (used by emergency map creation)
+    this.tileSize = tileSize;
+    
+    // Create a procedurally generated emergency map
+    return this.createEmergencyMap(width, height, tileSize);
   }
   
   createFallbackTileset() {
-    // Create a basic tileset programmatically
-    const tileSize = 32;
-    
-    // Create a temporary canvas to draw tiles
-    const canvas = document.createElement('canvas');
-    canvas.width = tileSize * 3;  // 3 tiles wide
-    canvas.height = tileSize;     // 1 tile high
-    const ctx = canvas.getContext('2d');
-    
-    // Floor tile (index 0) - light gray
-    ctx.fillStyle = '#AAAAAA';
-    ctx.fillRect(0, 0, tileSize, tileSize);
-    ctx.strokeStyle = '#999999';
-    ctx.strokeRect(2, 2, tileSize-4, tileSize-4);
-    
-    // Wall tile (index 1) - dark gray
-    ctx.fillStyle = '#555555';
-    ctx.fillRect(tileSize, 0, tileSize, tileSize);
-    ctx.strokeStyle = '#333333';
-    ctx.strokeRect(tileSize+2, 2, tileSize-4, tileSize-4);
-    
-    // Decoration tile (index 2) - green
-    ctx.fillStyle = '#55AA55';
-    ctx.fillRect(tileSize*2, 0, tileSize, tileSize);
-    ctx.strokeStyle = '#338833';
-    ctx.strokeRect(tileSize*2+2, 2, tileSize-4, tileSize-4);
-    
-    // Convert canvas to base64 image
-    const imageData = canvas.toDataURL();
-    
-    // Load the image into Phaser's cache
-    if (!this.scene.textures.exists('fallback_tiles')) {
-      const image = new Image();
-      image.src = imageData;
-      
-      this.scene.textures.addImage('fallback_tiles', image);
-    }
-    
-    // Add the tileset to the map
-    this.tileset = this.map.addTilesetImage('tiles', 'fallback_tiles');
+    console.log('Note: createFallbackTileset is deprecated, using emergency graphics instead');
+    return this;
   }
 }

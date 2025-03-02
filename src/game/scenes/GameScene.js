@@ -158,16 +158,97 @@ export default class GameScene extends Phaser.Scene {
     
     // If no spawn points defined, create enemies at random positions
     if (enemySpawns.length === 0) {
+      // Minimum safe distance from player (in pixels)
+      const MIN_SAFE_DISTANCE = 150;
+      
+      // Get player position
+      const playerX = this.player.x;
+      const playerY = this.player.y;
+      
+      let attempts = 0;
+      const maxAttempts = 50; // Prevent infinite loops
+      
       for (let i = 0; i < 5 + (gameState.level * 2); i++) {
-        const x = Phaser.Math.Between(100, 700);
-        const y = Phaser.Math.Between(100, 500);
+        let x, y;
+        let distanceFromPlayer;
+        let validSpawnFound = false;
+        
+        // Try to find a position that's not too close to the player
+        while (!validSpawnFound && attempts < maxAttempts) {
+          x = Phaser.Math.Between(100, 700);
+          y = Phaser.Math.Between(100, 500);
+          
+          // Calculate distance from player
+          distanceFromPlayer = Phaser.Math.Distance.Between(x, y, playerX, playerY);
+          
+          // If distance is acceptable, we can use this position
+          if (distanceFromPlayer >= MIN_SAFE_DISTANCE) {
+            validSpawnFound = true;
+          }
+          
+          attempts++;
+        }
+        
+        // Create enemy at this position
         this.createEnemy(x, y);
+        
+        // Reset attempts counter for next enemy
+        attempts = 0;
       }
     } else {
-      // Create enemies at defined spawn points
+      // Create enemies at defined spawn points, but only if they're not too close to the player
+      const MIN_SAFE_DISTANCE = 150;
+      const playerX = this.player.x;
+      const playerY = this.player.y;
+      
       enemySpawns.forEach(spawn => {
         const enemyType = spawn.properties?.find(prop => prop.name === 'type')?.value || 'basic';
-        this.createEnemy(spawn.x, spawn.y, enemyType);
+        
+        // Calculate distance from player
+        const distanceFromPlayer = Phaser.Math.Distance.Between(spawn.x, spawn.y, playerX, playerY);
+        
+        // Only spawn if distance is acceptable or we have explicit spawn points
+        // (We don't want to completely eliminate spawn points from the map, but we'll log a warning)
+        if (distanceFromPlayer >= MIN_SAFE_DISTANCE) {
+          this.createEnemy(spawn.x, spawn.y, enemyType);
+        } else {
+          console.warn(`Enemy spawn at (${spawn.x}, ${spawn.y}) is too close to player. Finding alternative position...`);
+          
+          // Find an alternative position nearby that's far enough from the player
+          let newX = spawn.x;
+          let newY = spawn.y;
+          let validSpawnFound = false;
+          let attempts = 0;
+          const maxAttempts = 20;
+          
+          while (!validSpawnFound && attempts < maxAttempts) {
+            // Try to move the spawn point away from the player
+            const angle = Math.random() * Math.PI * 2; // Random direction
+            const distance = MIN_SAFE_DISTANCE + Math.random() * 50; // Random distance beyond minimum
+            
+            newX = spawn.x + Math.cos(angle) * distance;
+            newY = spawn.y + Math.sin(angle) * distance;
+            
+            // Check if new position is far enough from player
+            const newDistance = Phaser.Math.Distance.Between(newX, newY, playerX, playerY);
+            
+            if (newDistance >= MIN_SAFE_DISTANCE) {
+              validSpawnFound = true;
+            }
+            
+            attempts++;
+          }
+          
+          if (validSpawnFound) {
+            console.log(`Relocated enemy to (${newX}, ${newY})`);
+            this.createEnemy(newX, newY, enemyType);
+          } else {
+            // Use original position as fallback if we can't find a better one
+            // This prevents no enemies from spawning at all
+            console.log(`Could not find alternative position, using original with warning`);
+            this.createEnemy(spawn.x, spawn.y, enemyType);
+          }
+        }
       });
     }
     
