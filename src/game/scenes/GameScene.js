@@ -30,8 +30,18 @@ export default class GameScene extends Phaser.Scene {
   }
   
   create() {
-    // Reset game state
-    gameState.reset();
+    // Reset game state, but only if coming from another scene or starting a new game
+    // If it's a level transition, level management is handled in showLevelComplete
+    // Check if this is a scene restart after level completion
+    if (this.scene.settings.data && this.scene.settings.data.levelTransition) {
+      // This is a level transition, no need to reset everything
+      // Just ensure the level complete flag is reset
+      this.levelComplete = false;
+    } else {
+      // This is a fresh game start (not a level transition)
+      gameState.reset();
+      this.levelComplete = false;
+    }
     
     // Create tile map
     this.tilemap = new TileMapManager(this);
@@ -77,25 +87,32 @@ export default class GameScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-ESC', () => {
       this.scene.start('MenuScene');
     });
+    
+    // Listen for player-died event
+    this.events.on('player-died', this.handleGameOver, this);
   }
   
   update(time, delta) {
-    if (this.isPaused || this.levelComplete) return;
+    if (this.isPaused) return;
     
-    // Update player
+    // Update player even when level is complete
     if (this.player) {
       this.player.update(time, this.cursors);
     }
     
-    // Update enemies
-    this.enemies.getChildren().forEach(enemy => {
-      enemy.update(time, delta);
-    });
-    
-    // Check for level completion
-    if (gameState.isLevelComplete() && !this.levelComplete) {
-      this.levelComplete = true;
-      this.showLevelComplete();
+    // Only update enemies and check level completion if level is not already complete
+    if (!this.levelComplete) {
+      // Update enemies
+      this.enemies.getChildren().forEach(enemy => {
+        enemy.update(time, delta);
+      });
+      
+      // Check for level completion
+      if (gameState.isLevelComplete() && gameState.enemies.total > 0) {
+        console.log("Level complete! Defeated: " + gameState.enemies.defeated + ", Total: " + gameState.enemies.total);
+        this.levelComplete = true;
+        this.showLevelComplete();
+      }
     }
     
     // Update UI
@@ -115,8 +132,7 @@ export default class GameScene extends Phaser.Scene {
       runChildUpdate: false
     });
     
-    // Create particle manager
-    this.particles = this.add.particles('bullet');
+    // Particles will be created on demand when needed
   }
   
   createPlayer() {
@@ -417,7 +433,9 @@ export default class GameScene extends Phaser.Scene {
       if (gameState.level < 3) {
         // Go to next level
         gameState.nextLevel();
-        this.scene.restart();
+        // Reset level-specific state while keeping level progress
+        gameState.resetForLevelTransition();
+        this.scene.restart({ levelTransition: true });
       } else {
         // Game complete
         this.scene.start('VictoryScene');
@@ -427,7 +445,7 @@ export default class GameScene extends Phaser.Scene {
   
   handleGameOver() {
     // Set game over state
-    gameState.gameOver = true;
+    gameState.setGameOver(true);
     
     // Display game over message
     const gameOverText = this.add.text(

@@ -36,6 +36,12 @@ class GameState {
   get maxHealth() { return this._state.maxHealth; }
   get playerWeapon() { return this._state.playerWeapon; }
   get gameOver() { return this._state.gameOver; }
+  
+  setGameOver(value) {
+    this._state.gameOver = value;
+    return this._state.gameOver;
+  }
+  
   get paused() { return this._state.paused; }
   get enemies() { return this._state.enemies; }
   get items() { return this._state.items; }
@@ -45,6 +51,22 @@ class GameState {
     this._state.level = 1;
     this._state.playerHealth = 100;
     this._state.playerWeapon = 1;
+    this._state.gameOver = false;
+    this._state.paused = false;
+    this._state.enemies = {
+      defeated: 0,
+      total: 0
+    };
+    this._state.items = {
+      collected: 0
+    };
+    
+    return this;
+  }
+  
+  resetForLevelTransition() {
+    // Keep the score and level, but reset level-specific state
+    this._state.playerHealth = 100;
     this._state.gameOver = false;
     this._state.paused = false;
     this._state.enemies = {
@@ -93,7 +115,7 @@ class GameState {
     this._state.playerHealth = Math.min(Math.max(0, this._state.playerHealth + value), this._state.maxHealth);
     
     if (this._state.playerHealth <= 0) {
-      this._state.gameOver = true;
+      this.setGameOver(true);
     }
     
     return this._state.playerHealth;
@@ -103,7 +125,7 @@ class GameState {
     this._state.playerHealth = Math.min(Math.max(0, value), this._state.maxHealth);
     
     if (this._state.playerHealth <= 0) {
-      this._state.gameOver = true;
+      this.setGameOver(true);
     }
     
     return this._state.playerHealth;

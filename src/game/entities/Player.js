@@ -179,6 +179,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   }
   
   takeDamage(amount) {
+    if (this.isDead) return this.health; // Don't take damage if already dead
+    
     this.health -= amount;
     
     // Flash red when taking damage
@@ -188,6 +190,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     });
     
     if (this.health <= 0) {
+      this.health = 0; // Ensure health doesn't go negative
       this.die();
     }
     

@@ -66,23 +66,38 @@ export default class Item extends Phaser.Physics.Arcade.Sprite {
     // Play collection animation
     this.disableBody(true, true);
     
-    // Create collection effect
-    const particles = this.scene.add.particles(`item-${this.type}`);
-    const emitter = particles.createEmitter({
-      speed: 50,
-      scale: { start: 0.5, end: 0 },
-      alpha: { start: 1, end: 0 },
-      lifespan: 500,
-      blendMode: 'ADD'
-    });
-    
-    // Emit particles at item location
-    emitter.explode(5, this.x, this.y);
-    
-    // Destroy particles after animation completes
-    this.scene.time.delayedCall(500, () => {
-      particles.destroy();
-    });
+    try {
+      // Create collection effect using modern Phaser 3.60+ particle API
+      const particleConfig = {
+        x: this.x,
+        y: this.y,
+        speed: 50,
+        scale: { start: 0.5, end: 0 },
+        alpha: { start: 1, end: 0 },
+        lifespan: 500,
+        blendMode: 'ADD',
+        emitting: false
+      };
+      
+      // Create a particle emitter manager and emitter
+      const particles = this.scene.add.particles(0, 0, `item-${this.type}`, {
+        emitting: false
+      });
+      
+      // Create the emitter with our configuration
+      const emitter = particles.createEmitter(particleConfig);
+      
+      // Explode particles at the item's location
+      emitter.explode(5, this.x, this.y);
+      
+      // Destroy particles after animation completes
+      this.scene.time.delayedCall(500, () => {
+        particles.destroy();
+      });
+    } catch (error) {
+      // Log error but don't crash the game
+      console.error('Error creating item collection particles:', error);
+    }
     
     return {
       type: this.type,

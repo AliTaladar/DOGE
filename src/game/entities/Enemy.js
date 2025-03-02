@@ -222,15 +222,23 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
   
   die() {
     // Emit particle effect
-    if (this.scene.particles) {
-      const emitter = this.scene.particles.createEmitter({
+    try {
+      // Create particles at the enemy's position
+      const particles = this.scene.add.particles(this.x, this.y, 'bullet', {
         speed: 100,
         scale: { start: 1, end: 0 },
         blendMode: 'ADD',
-        lifespan: 500
+        lifespan: 500,
+        quantity: 10
       });
       
-      emitter.explode(10, this.x, this.y);
+      // Auto-destroy particles after they're done
+      this.scene.time.delayedCall(1000, () => {
+        particles.destroy();
+      });
+    } catch (err) {
+      console.warn('Error creating particle effect:', err.message);
+      // Gracefully continue even if particle effect fails
     }
     
     // Set enemy as inactive
