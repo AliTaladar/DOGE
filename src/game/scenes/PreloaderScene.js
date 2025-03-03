@@ -218,6 +218,10 @@ export default class PreloaderScene extends Phaser.Scene {
       // Load misc sounds
       this.load.audio('shooting', '/assets/sounds/misc/shooting.mp3');
       
+      // Load music tracks
+      this.load.audio('main_menu_music', '/assets/sounds/misc/main_menu.mp3');
+      this.load.audio('game_music', '/assets/sounds/misc/game.mp3');
+      
       console.log('Sound assets loaded successfully');
     } catch (error) {
       console.error('Error loading sound assets:', error);

@@ -30,7 +30,9 @@ export default class GameScene extends Phaser.Scene {
   }
   
   create() {
-    // Reset game state, but only if coming from another scene or starting a new game
+    // Set up initial game state
+    this.levelComplete = false;
+    
     // If it's a level transition, level management is handled in showLevelComplete
     // Check if this is a scene restart after level completion
     if (this.scene.settings.data && this.scene.settings.data.levelTransition) {
@@ -41,6 +43,24 @@ export default class GameScene extends Phaser.Scene {
       // This is a fresh game start (not a level transition)
       gameState.reset();
       this.levelComplete = false;
+    }
+    
+    // Start game music
+    try {
+      // Stop any menu music that might be playing
+      if (this.sound.get('main_menu_music')) {
+        this.sound.stopByKey('main_menu_music');
+      }
+      
+      // Play game music if not already playing
+      if (!this.sound.get('game_music') || !this.sound.get('game_music').isPlaying) {
+        this.sound.play('game_music', {
+          loop: true,
+          volume: 0.4
+        });
+      }
+    } catch (err) {
+      console.warn('Error playing game music:', err.message);
     }
     
     // Create tile map
@@ -558,9 +578,22 @@ export default class GameScene extends Phaser.Scene {
     
     // Play victory sound
     try {
+      // Lower game music volume during victory sound
+      const gameMusic = this.sound.get('game_music');
+      if (gameMusic) {
+        gameMusic.setVolume(0.2);
+      }
+      
       // Randomly select one of the victory sounds
       const victorySound = Math.random() < 0.5 ? 'victory1' : 'victory2';
       this.sound.play(victorySound, { volume: 0.7 });
+      
+      // Restore music volume after victory sound
+      if (gameMusic) {
+        this.time.delayedCall(2000, () => {
+          gameMusic.setVolume(0.4);
+        });
+      }
     } catch (err) {
       console.warn('Error playing victory sound:', err.message);
     }
@@ -585,7 +618,10 @@ export default class GameScene extends Phaser.Scene {
     try {
       // Randomly select one of the defeat sounds
       const defeatSound = Math.random() < 0.5 ? 'defeat1' : 'defeat2';
-      this.sound.play(defeatSound, { volume: 0.7 });
+      this.sound.play(defeatSound, { volume: 0.9 });
+      
+      // Stop the game music
+      this.sound.stopByKey('game_music');
     } catch (err) {
       console.warn('Error playing defeat sound:', err.message);
     }

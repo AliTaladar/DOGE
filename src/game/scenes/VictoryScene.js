@@ -10,6 +10,15 @@ export default class VictoryScene extends Phaser.Scene {
     // Background color
     this.cameras.main.setBackgroundColor('#000000');
     
+    // Stop game music
+    try {
+      if (this.sound.get('game_music')) {
+        this.sound.stopByKey('game_music');
+      }
+    } catch (err) {
+      console.warn('Error stopping game music:', err.message);
+    }
+    
     // Play victory sound
     try {
       // Randomly select one of the victory sounds

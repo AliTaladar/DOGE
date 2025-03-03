@@ -14,6 +14,24 @@ export default class MenuScene extends Phaser.Scene {
     // Reset game state
     gameState.reset();
 
+    // Start menu music
+    try {
+      // Stop any game music that might be playing
+      if (this.sound.get('game_music')) {
+        this.sound.stopByKey('game_music');
+      }
+      
+      // Play menu music if not already playing
+      if (!this.sound.get('main_menu_music') || !this.sound.get('main_menu_music').isPlaying) {
+        this.sound.play('main_menu_music', {
+          loop: true,
+          volume: 0.6
+        });
+      }
+    } catch (err) {
+      console.warn('Error playing menu music:', err.message);
+    }
+
     try {
       // Add title background
       this.add.image(400, 300, 'title-bg').setScale(1);
