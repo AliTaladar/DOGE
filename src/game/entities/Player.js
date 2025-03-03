@@ -146,7 +146,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   }
   
   handleShooting(time, cursors) {
-    const space = cursors.space;
+    const space = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     
     if (space.isDown && time > this.lastFired) {
       const bullet = this.bullets.get();
@@ -167,12 +167,18 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         bullet.setVelocityX(direction * 400);
         
         // Set bullet lifetime
-        this.scene.time.delayedCall(1500, () => {
+        this.scene.time.delayedCall(2000, () => {
           bullet.setActive(false);
           bullet.setVisible(false);
         });
         
-        // Set cooldown
+        // Play shooting sound
+        try {
+          this.scene.sound.play('shooting', { volume: 0.5 });
+        } catch (err) {
+          console.warn('Error playing shooting sound:', err.message);
+        }
+        
         this.lastFired = time + this.fireRate;
       }
     }

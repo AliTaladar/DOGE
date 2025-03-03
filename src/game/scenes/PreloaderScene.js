@@ -122,6 +122,9 @@ export default class PreloaderScene extends Phaser.Scene {
       
       this.load.image('bullet', '/assets/sprites/bullet.png');
       
+      // Load sound effects
+      this.loadSoundAssets();
+      
       // Load item sprites with fallbacks
       try {
         this.load.spritesheet('item-coin', '/assets/sprites/coin.png', { 
@@ -198,6 +201,26 @@ export default class PreloaderScene extends Phaser.Scene {
       console.error("Error loading assets:", error);
       // Fallback to default assets if needed
       this.loadFallbackAssets();
+    }
+  }
+  
+  loadSoundAssets() {
+    // Load sound effects with proper error handling
+    try {
+      // Load victory sounds
+      this.load.audio('victory1', '/assets/sounds/victory/victory1.mp3');
+      this.load.audio('victory2', '/assets/sounds/victory/victory2.mp3');
+      
+      // Load defeat sounds
+      this.load.audio('defeat1', '/assets/sounds/defeat/defeat1.mp3');
+      this.load.audio('defeat2', '/assets/sounds/defeat/defeat2.mp3');
+      
+      // Load misc sounds
+      this.load.audio('shooting', '/assets/sounds/misc/shooting.mp3');
+      
+      console.log('Sound assets loaded successfully');
+    } catch (error) {
+      console.error('Error loading sound assets:', error);
     }
   }
   

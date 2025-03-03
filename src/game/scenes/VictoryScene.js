@@ -10,6 +10,15 @@ export default class VictoryScene extends Phaser.Scene {
     // Background color
     this.cameras.main.setBackgroundColor('#000000');
     
+    // Play victory sound
+    try {
+      // Randomly select one of the victory sounds
+      const victorySound = Math.random() < 0.5 ? 'victory1' : 'victory2';
+      this.sound.play(victorySound, { volume: 0.8 });
+    } catch (err) {
+      console.warn('Error playing victory sound:', err.message);
+    }
+    
     // Victory title
     const title = this.add.text(400, 150, 'VICTORY!', {
       fontFamily: 'Arial',

@@ -544,17 +544,26 @@ export default class GameScene extends Phaser.Scene {
   showLevelComplete() {
     // Display level complete message
     const levelCompleteText = this.add.text(
-      this.cameras.main.midPoint.x,
-      this.cameras.main.midPoint.y,
+      this.cameras.main.width / 2,
+      this.cameras.main.height / 2,
       'LEVEL COMPLETE!\nScore: ' + gameState.score,
       {
-        font: 'bold 32px Arial',
+        font: '32px Arial',
         fill: '#ffffff',
-        align: 'center',
         stroke: '#000000',
-        strokeThickness: 6
+        strokeThickness: 6,
+        align: 'center'
       }
     ).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
+    
+    // Play victory sound
+    try {
+      // Randomly select one of the victory sounds
+      const victorySound = Math.random() < 0.5 ? 'victory1' : 'victory2';
+      this.sound.play(victorySound, { volume: 0.7 });
+    } catch (err) {
+      console.warn('Error playing victory sound:', err.message);
+    }
     
     // Wait a moment then start next level or go to victory screen
     this.time.delayedCall(3000, () => {
@@ -572,25 +581,48 @@ export default class GameScene extends Phaser.Scene {
   }
   
   handleGameOver() {
-    // Set game over state
-    gameState.setGameOver(true);
+    // Play defeat sound
+    try {
+      // Randomly select one of the defeat sounds
+      const defeatSound = Math.random() < 0.5 ? 'defeat1' : 'defeat2';
+      this.sound.play(defeatSound, { volume: 0.7 });
+    } catch (err) {
+      console.warn('Error playing defeat sound:', err.message);
+    }
     
-    // Display game over message
+    // Update high score if needed
+    if (gameState.score > gameState.highScore) {
+      gameState.setHighScore(gameState.score);
+      // Save high score to local storage
+      try {
+        localStorage.setItem('sundaiShooterHighScore', gameState.highScore);
+      } catch (e) {
+        console.warn('Could not save high score to local storage:', e);
+      }
+    }
+    
+    // Display game over text
     const gameOverText = this.add.text(
-      this.cameras.main.midPoint.x,
-      this.cameras.main.midPoint.y,
+      this.cameras.main.width / 2,
+      this.cameras.main.height / 2,
       'GAME OVER\nScore: ' + gameState.score + '\nHigh Score: ' + gameState.highScore,
       {
-        font: 'bold 32px Arial',
-        fill: '#ffffff',
-        align: 'center',
+        font: '32px Arial',
+        fill: '#ff0000',
         stroke: '#000000',
-        strokeThickness: 6
+        strokeThickness: 6,
+        align: 'center'
       }
     ).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
     
-    // Wait a moment then return to menu
-    this.time.delayedCall(3000, () => {
+    // Stop all movement and disable player
+    this.player.disableBody(true, false);
+    this.enemies.getChildren().forEach(enemy => {
+      enemy.disableBody(true, false);
+    });
+    
+    // Wait and then go back to menu
+    this.time.delayedCall(5000, () => {
       this.scene.start('MenuScene');
     });
   }
