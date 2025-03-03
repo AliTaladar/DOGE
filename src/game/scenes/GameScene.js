@@ -282,6 +282,27 @@ export default class GameScene extends Phaser.Scene {
       this
     );
     
+    // Player bullets hit walls
+    if (this.tilemap.layers && this.tilemap.layers.walls) {
+      // Using tilemap walls
+      this.physics.add.collider(
+        this.player.getBullets(),
+        this.tilemap.layers.walls,
+        this.handleBulletWallCollision,
+        null,
+        this
+      );
+    } else if (this.tilemap.emergencyGraphics && this.tilemap.emergencyGraphics.length > 0) {
+      // Using emergency graphics walls
+      this.physics.add.collider(
+        this.player.getBullets(),
+        this.tilemap.emergencyGraphics,
+        this.handleBulletWallCollision,
+        null,
+        this
+      );
+    }
+    
     // Enemies hit player
     this.physics.add.collider(
       this.player,
@@ -299,6 +320,105 @@ export default class GameScene extends Phaser.Scene {
       null,
       this
     );
+  }
+  
+  handleBulletEnemyCollision(bullet, enemy) {
+    // Deactivate bullet
+    bullet.setActive(false);
+    bullet.setVisible(false);
+    
+    // Enemy takes damage
+    const score = enemy.takeDamage(20);
+    
+    // If enemy was defeated, add score
+    if (score) {
+      gameState.incrementScore(score);
+      gameState.enemyDefeated();
+      
+      // Chance to drop item
+      if (Math.random() < 0.3) {
+        this.dropItem(enemy.x, enemy.y);
+      }
+    }
+  }
+  
+  handleBulletWallCollision(bullet, wall) {
+    // Deactivate bullet when it hits a wall
+    bullet.setActive(false);
+    bullet.setVisible(false);
+    
+    // Optional: Create a small particle effect
+    try {
+      // Create particles at the bullet's position to show impact
+      const particles = this.add.particles(bullet.x, bullet.y, 'bullet', {
+        speed: 50,
+        scale: { start: 0.5, end: 0 },
+        blendMode: 'ADD',
+        lifespan: 200,
+        quantity: 5
+      });
+      
+      // Auto-destroy particles after they're done
+      this.time.delayedCall(300, () => {
+        particles.destroy();
+      });
+    } catch (err) {
+      console.warn('Error creating bullet impact effect:', err.message);
+      // Continue even if particle effect fails
+    }
+  }
+  
+  handlePlayerEnemyCollision(player, enemy) {
+    // Player takes damage on collision with enemy
+    const health = player.takeDamage(enemy.damage);
+    
+    // Update health in game state
+    gameState.setHealth(health);
+    
+    // Game over if player has no health
+    if (health <= 0) {
+      this.handleGameOver();
+    }
+  }
+  
+  handleItemCollection(player, item) {
+    const { type, value } = item.collect();
+    
+    // Handle different item types
+    switch(type) {
+      case 'health':
+        gameState.updateHealth(value);
+        break;
+      case 'ammo':
+        // Ammo not implemented in current version
+        break;
+      case 'weapon':
+        gameState.upgradeWeapon();
+        break;
+      case 'coin':
+      default:
+        gameState.incrementScore(value);
+    }
+    
+    gameState.itemCollected();
+  }
+  
+  dropItem(x, y) {
+    // Determine item type
+    const rand = Math.random();
+    let type = 'coin';
+    
+    if (rand < 0.1) {
+      type = 'weapon';
+    } else if (rand < 0.3) {
+      type = 'health';
+    } else if (rand < 0.5) {
+      type = 'ammo';
+    }
+    
+    // Create and add the item
+    const item = new Item(this, x, y, type);
+    this.items.add(item);
   }
   
   createUI() {
@@ -356,79 +476,6 @@ export default class GameScene extends Phaser.Scene {
     
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
     this.cameras.main.setZoom(1.2);
-  }
-  
-  handleBulletEnemyCollision(bullet, enemy) {
-    // Deactivate bullet
-    bullet.setActive(false);
-    bullet.setVisible(false);
-    
-    // Enemy takes damage
-    const score = enemy.takeDamage(20);
-    
-    // If enemy was defeated, add score
-    if (score) {
-      gameState.incrementScore(score);
-      gameState.enemyDefeated();
-      
-      // Chance to drop item
-      if (Math.random() < 0.3) {
-        this.dropItem(enemy.x, enemy.y);
-      }
-    }
-  }
-  
-  handlePlayerEnemyCollision(player, enemy) {
-    // Player takes damage on collision with enemy
-    const health = player.takeDamage(enemy.damage);
-    
-    // Update health in game state
-    gameState.setHealth(health);
-    
-    // Game over if player has no health
-    if (health <= 0) {
-      this.handleGameOver();
-    }
-  }
-  
-  handleItemCollection(player, item) {
-    const { type, value } = item.collect();
-    
-    // Handle different item types
-    switch(type) {
-      case 'health':
-        gameState.updateHealth(value);
-        break;
-      case 'ammo':
-        // Ammo not implemented in current version
-        break;
-      case 'weapon':
-        gameState.upgradeWeapon();
-        break;
-      case 'coin':
-      default:
-        gameState.incrementScore(value);
-    }
-    
-    gameState.itemCollected();
-  }
-  
-  dropItem(x, y) {
-    // Determine item type
-    const rand = Math.random();
-    let type = 'coin';
-    
-    if (rand < 0.1) {
-      type = 'weapon';
-    } else if (rand < 0.3) {
-      type = 'health';
-    } else if (rand < 0.5) {
-      type = 'ammo';
-    }
-    
-    // Create and add the item
-    const item = new Item(this, x, y, type);
-    this.items.add(item);
   }
   
   updateUI() {

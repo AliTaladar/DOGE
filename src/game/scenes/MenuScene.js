@@ -24,7 +24,7 @@ export default class MenuScene extends Phaser.Scene {
 
     // Logo or title text
     try {
-      this.add.image(400, 100, 'logo').setScale(0.8);
+      this.add.image(400, 95, 'logo').setScale(0.8);
     } catch (err) {
       // If logo fails to load, use text instead
       this.add.text(400, 100, 'DOGE SHOOTER', {
